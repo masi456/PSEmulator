@@ -1,0 +1,6 @@
+#include <cstdint>
+
+struct RomHeader
+{
+
+};
