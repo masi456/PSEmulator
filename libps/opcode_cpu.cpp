@@ -1,9 +1,10 @@
 #include "opcode_cpu.hpp"
 #include "libutils/math.hpp"
+#include "loaddelayslot.hpp"
 
 #include <spdlog/spdlog.h>
 
-void OpcodeImplementationCpu::lui(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::lui(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto imm = opcode.imm16();
 
@@ -11,9 +12,10 @@ void OpcodeImplementationCpu::lui(Opcode opcode, CpuState *cpuState) {
 
     uint32_t value = imm << 16;
     cpuState->setRegister(rt, value);
+    cpuCallbacks->invalidateLoadDelaySlot(rt);
 }
 
-void OpcodeImplementationCpu::ori(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::ori(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
     auto imm = opcode.imm16();
@@ -22,9 +24,10 @@ void OpcodeImplementationCpu::ori(Opcode opcode, CpuState *cpuState) {
 
     uint32_t value = cpuState->getRegister(rs) | imm;
     cpuState->setRegister(rt, value);
+    cpuCallbacks->invalidateLoadDelaySlot(rt);
 }
 
-LoadDelaySlot OpcodeImplementationCpu::lw(Opcode opcode, CpuState *cpuState, Memory *memory) {
+void OpcodeImplementationCpu::lw(Opcode opcode, CpuState *cpuState, Memory *memory, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
     auto imm = opcode.imm16();
@@ -33,7 +36,7 @@ LoadDelaySlot OpcodeImplementationCpu::lw(Opcode opcode, CpuState *cpuState, Mem
 
     uint32_t address = cpuState->getRegister(rs) + imm;
     uint32_t value = memory->u32(address);
-    return LoadDelaySlot {rt, value};
+    cpuCallbacks->addLoadDelaySlot(LoadDelaySlot(rt, value));
 }
 
 void OpcodeImplementationCpu::sw(Opcode opcode, CpuState *cpuState, Memory *memory) {
@@ -48,7 +51,7 @@ void OpcodeImplementationCpu::sw(Opcode opcode, CpuState *cpuState, Memory *memo
     memory->u32Write(address, value);
 }
 
-void OpcodeImplementationCpu::sll(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::sll(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rd = opcode.rd();
     auto imm = opcode.imm5();
@@ -57,9 +60,10 @@ void OpcodeImplementationCpu::sll(Opcode opcode, CpuState *cpuState) {
 
     uint32_t value = cpuState->getRegister(rt) << imm;
     cpuState->setRegister(rd, value);
+    cpuCallbacks->invalidateLoadDelaySlot(rd);
 }
 
-void OpcodeImplementationCpu::addi(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::addi(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
     auto imm = opcode.imm16();
@@ -69,12 +73,13 @@ void OpcodeImplementationCpu::addi(Opcode opcode, CpuState *cpuState) {
     auto checkedAdd = checked_add(cpuState->getRegister(rs), imm);
     if (checkedAdd) {
         cpuState->setRegister(rt, *checkedAdd);
+        cpuCallbacks->invalidateLoadDelaySlot(rt);
     } else {
         throw std::runtime_error("addi overflow");
     }
 }
 
-void OpcodeImplementationCpu::addiu(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::addiu(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
     auto imm = opcode.imm16();
@@ -83,6 +88,7 @@ void OpcodeImplementationCpu::addiu(Opcode opcode, CpuState *cpuState) {
 
     uint32_t value = cpuState->getRegister(rs) + imm;
     cpuState->setRegister(rt, value);
+    cpuCallbacks->invalidateLoadDelaySlot(rt);
 }
 
 void OpcodeImplementationCpu::j(Opcode opcode, CpuState *cpuState) {
@@ -93,7 +99,7 @@ void OpcodeImplementationCpu::j(Opcode opcode, CpuState *cpuState) {
     cpuState->setProgramCounter(address);
 }
 
-void OpcodeImplementationCpu:: or_(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu:: or_(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
     auto rd = opcode.rd();
@@ -102,6 +108,7 @@ void OpcodeImplementationCpu:: or_(Opcode opcode, CpuState *cpuState) {
 
     auto value = cpuState->getRegister(rs) | cpuState->getRegister(rt);
     cpuState->setRegister(rd, value);
+    cpuCallbacks->invalidateLoadDelaySlot(rd);
 }
 
 void OpcodeImplementationCpu::bne(Opcode opcode, CpuState *cpuState) {

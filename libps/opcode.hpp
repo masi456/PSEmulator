@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cpustate.hpp"
+#include "loaddelayslot.hpp"
 #include "memory.hpp"
 
 #include <cstdint>
@@ -51,3 +52,8 @@ public:
     static Opcode NOP() { return Opcode(0); }
 };
 
+class IOpcodeCpuCallbacks {
+public:
+    virtual void invalidateLoadDelaySlot(RegisterIndex index) = 0;
+    virtual void addLoadDelaySlot(LoadDelaySlot slot) = 0;
+};

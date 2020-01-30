@@ -1,6 +1,6 @@
 #include "opcode_cop0.hpp"
 
-void OpcodeImplementationCop0::mtc0(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCop0::mtc0(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rd = opcode.rd();
 
@@ -8,4 +8,5 @@ void OpcodeImplementationCop0::mtc0(Opcode opcode, CpuState *cpuState) {
 
     auto value = cpuState->getRegister(rt);
     cpuState->setRegisterCop0(rd, value);
+    cpuCallbacks->invalidateLoadDelaySlot(rd);
 }

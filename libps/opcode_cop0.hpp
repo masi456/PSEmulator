@@ -4,5 +4,5 @@
 #include "cpustate.hpp"
 
 namespace OpcodeImplementationCop0 {
-void mtc0(Opcode opcode, CpuState *cpuState);
+void mtc0(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 };

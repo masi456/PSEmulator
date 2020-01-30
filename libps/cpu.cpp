@@ -26,13 +26,15 @@ void CPU::decodeAndExecute(Opcode opcode) {
     auto instruction = opcode.instruction();
     spdlog::trace("[decode] instruction {0:#04x} ({0:#08b})", instruction);
 
+    IOpcodeCpuCallbacks *opcodeCpuCallbacks = this;
+
     switch (instruction) {
     case 0b001111:
-        OpcodeImplementationCpu::lui(opcode, &_cpuState);
+        OpcodeImplementationCpu::lui(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0b001101:
-        OpcodeImplementationCpu::ori(opcode, &_cpuState);
+        OpcodeImplementationCpu::ori(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0b101011: {
@@ -47,15 +49,15 @@ void CPU::decodeAndExecute(Opcode opcode) {
     }
 
     case 0b100011:
-        _loadDelaySlot[1] = OpcodeImplementationCpu::lw(opcode, &_cpuState, _memory);
+        OpcodeImplementationCpu::lw(opcode, &_cpuState, _memory, opcodeCpuCallbacks);
         return;
 
     case 0b001000:
-        OpcodeImplementationCpu::addi(opcode, &_cpuState);
+        OpcodeImplementationCpu::addi(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0b001001:
-        OpcodeImplementationCpu::addiu(opcode, &_cpuState);
+        OpcodeImplementationCpu::addiu(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0b000010:
@@ -71,10 +73,10 @@ void CPU::decodeAndExecute(Opcode opcode) {
         spdlog::trace("[decode] subfunction {0:#04x} ({0:#08b})", subfunction);
         switch (subfunction) {
         case 0b000000:
-            OpcodeImplementationCpu::sll(opcode, &_cpuState);
+            OpcodeImplementationCpu::sll(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
         case 0b100101:
-            OpcodeImplementationCpu::or_(opcode, &_cpuState);
+            OpcodeImplementationCpu::or_(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
         }
     }
@@ -94,10 +96,13 @@ void CPU::decodeAndExecute(Opcode opcode) {
 
 void CPU::decodeAndExecuteCop0(Opcode opcode) {
     auto cop_opcode = opcode.cop_opcode();
+
+    IOpcodeCpuCallbacks *opcodeCpuCallbacks = this;
+
     switch (cop_opcode) {
 
     case 0b00100:
-        OpcodeImplementationCop0::mtc0(opcode, &_cpuState);
+        OpcodeImplementationCop0::mtc0(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     default:
@@ -136,17 +141,33 @@ void CPU::step() {
 void CPU::moveAndApplyLoadDelaySlots() {
     auto first = _loadDelaySlot[0];
     if (first) {
+        spdlog::trace("Applying load delay slot value {:010x} for register {}", first->value, first->index);
         _cpuState.setRegister(first->index, first->value);
         _loadDelaySlot[0] = {};
     }
 
     auto second = _loadDelaySlot[1];
     if (second) {
-        first = second;
+        _loadDelaySlot[0] = second;
         _loadDelaySlot[1] = {};
     }
 }
 
-void CPU::invalidateLoadDelaySlot() {
+void CPU::invalidateLoadDelaySlot(RegisterIndex index) {
+    if (!_loadDelaySlot[0]) {
+        spdlog::trace("Wanted to invalidate load delay slot but no entry present");
+        return;
+    }
+
+    if (_loadDelaySlot[0]->index != index) {
+        spdlog::trace("Wanted to invalidate load delay for index {} but entry for {} is present", index, _loadDelaySlot[0]->index);
+        return;
+    }
+
+    spdlog::trace("Invalidated load delay slot for register {}", index);
     _loadDelaySlot[0] = {};
+}
+
+void CPU::addLoadDelaySlot(LoadDelaySlot slot) {
+    _loadDelaySlot[1] = slot;
 }

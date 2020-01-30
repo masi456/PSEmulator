@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-
+#include <compare>
 // Must be included to make custom operator<< implementations for spdlog.
 #include <spdlog/fmt/ostr.h>
 
@@ -12,6 +12,7 @@ private:
 public:
     RegisterIndex(uint8_t index) { _index = index; }
     uint8_t index() const { return _index; }
+    auto operator<=>(const RegisterIndex &) const = default;
 };
 std::ostream &operator<<(std::ostream &os, const RegisterIndex &ri);
 

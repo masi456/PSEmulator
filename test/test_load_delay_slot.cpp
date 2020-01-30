@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <spdlog/spdlog.h>
 
 using testing::_;
 using testing::Return;
@@ -14,6 +15,7 @@ public:
 };
 
 TEST(LoadDelaySlot, testLoadDelaySlotNextRead) {
+    spdlog::set_level(spdlog::level::trace);
     auto memory = MockMemory();
 
     // lw $1, 0($0)
@@ -55,17 +57,20 @@ TEST(LoadDelaySlot, testLoadDelaySlotNextRead) {
     cpu.initializeState();
 
     cpu.setMemory(&memory);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         cpu.step();
     }
 
     auto cpuState = cpu.getCpuState();
-    ASSERT_EQ(cpuState->getRegister(RegisterIndex(1)), 12);
-    ASSERT_EQ(cpuState->getRegister(RegisterIndex(2)), 0);
-    ASSERT_EQ(cpuState->getRegister(RegisterIndex(3)), 12);
+    EXPECT_EQ(cpuState->getRegister(RegisterIndex(1)), 12);
+    // $2 needs to have the value of $1 before the lw happened.
+    EXPECT_EQ(cpuState->getRegister(RegisterIndex(2)), 0xDEADBEEF);
+    EXPECT_EQ(cpuState->getRegister(RegisterIndex(3)), 12);
 }
 
 TEST(LoadDelaySlot, testLoadDelaySlotNextWrite) {
+    spdlog::set_level(spdlog::level::trace);
+
     auto memory = MockMemory();
 
     // lw $1, 0($0)
@@ -102,5 +107,5 @@ TEST(LoadDelaySlot, testLoadDelaySlotNextWrite) {
     }
 
     auto cpuState = cpu.getCpuState();
-    ASSERT_EQ(cpuState->getRegister(RegisterIndex(1)), 42);
+    EXPECT_EQ(cpuState->getRegister(RegisterIndex(1)), 42);
 }
