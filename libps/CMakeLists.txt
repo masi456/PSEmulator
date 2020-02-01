@@ -1,6 +1,4 @@
 add_library (libps
-    rom.hpp
-    rom.cpp
     playstation.hpp
     playstation.cpp
     memory.hpp
@@ -20,6 +18,8 @@ add_library (libps
     memory_region.hpp
     loaddelayslot.cpp
     loaddelayslot.hpp
+    ram.hpp
+    ram.cpp
 )
 
 target_link_libraries (libps LINK_PUBLIC libutils)

@@ -19,18 +19,18 @@ TEST(LoadDelaySlot, testLoadDelaySlotNextRead) {
     auto memory = MockMemory();
 
     // lw $1, 0($0)
-    uint32_t loadInstruction = 
+    uint32_t loadInstruction = static_cast<uint32_t>(
         0b100011 << 26 | 
         0 << 21 | 
         1 << 16 | 
-        0;
+        0);
 
     // addi $2, $1, 0
-    uint32_t addInstruction1 =
+    uint32_t addInstruction1 = static_cast<uint32_t>(
         0b001000 << 26 |
         1 << 21 |
         2 << 16 |
-        0;
+        0);
 
     // addi $3, $1, 0
     uint32_t addInstruction2 =
@@ -74,11 +74,11 @@ TEST(LoadDelaySlot, testLoadDelaySlotNextWrite) {
     auto memory = MockMemory();
 
     // lw $1, 0($0)
-    uint32_t loadInstruction = 
+    uint32_t loadInstruction = static_cast<uint32_t>(
         0b100011 << 26 | 
         0 << 21 | 
         1 << 16 | 
-        0;
+        0);
 
     // addi $1, $0, 42
     uint32_t addInstruction1 =

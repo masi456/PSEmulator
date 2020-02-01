@@ -17,6 +17,7 @@ set (CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options (/W4)
 # add_compile_options (/WX)
 
+# add_compile_options (/experimental:module)
 add_compile_options (/experimental:external)
 add_compile_options (/external:anglebrackets)
 add_compile_options (/external:W0)

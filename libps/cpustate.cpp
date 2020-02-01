@@ -1,4 +1,5 @@
 #include "cpustate.hpp"
+#include "libutils/exception.hpp"
 
 #include <algorithm>
 #include <spdlog/spdlog.h>
@@ -47,6 +48,12 @@ uint32_t CpuState::getRegister(RegisterIndex index) const {
 }
 
 void CpuState::setRegisterCop0(RegisterIndex index, uint32_t value) {
+    if (index != Cop0Registers::SR &&
+        value != 0) {
+        spdlog::error("Program tried to write to cop0 register {} and write was not handled.", index);
+        throw NotImplemented();
+    }
+
     spdlog::trace("[reg] write cop0_${} = {:#010x}", index, value);
     _registersCop0[index.index()] = value;
 }

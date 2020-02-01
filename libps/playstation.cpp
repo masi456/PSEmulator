@@ -1,6 +1,7 @@
 #include "bios.hpp"
 #include "playstation.hpp"
 #include "libutils/file.hpp"
+#include "ram.hpp"
 
 #include <memory>
 #include <spdlog/spdlog.h>
@@ -9,6 +10,9 @@ void Playstation::initialize()
 {
     _cpu.setMemory(&_memory);
     _cpu.initializeState();
+
+    auto ram = std::make_unique<Ram>();
+    _memory.setRam(std::move(ram));
 }
 
 void Playstation::intializeBios(const std::string &path)
@@ -27,9 +31,6 @@ void Playstation::intializeBios(const std::string &path)
 
 void Playstation::run()
 {
-    auto ri = RegisterIndex(0x0);
-    spdlog::debug("{}", ri);
-
     while (true) {
         _cpu.step();
     }

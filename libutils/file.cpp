@@ -28,6 +28,6 @@ std::vector<uint8_t> File::readAll()
         return buffer;
     }
     else {
-        THROW(std::runtime_error, fmt::format("Error reading file {}", _path));
+        throw std::runtime_error(fmt::format("Error reading file {}", _path));
     }
 }

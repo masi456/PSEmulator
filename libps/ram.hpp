@@ -1,23 +1,30 @@
 #pragma once
 
-#include "memory_region.hpp"
-
 #include "libutils/data.hpp"
+#include "memory_region.hpp"
+#include "ram.hpp"
 
-class BIOS
+class Ram
     : public MemoryRegion {
+private:
     ByteBuffer _data;
 
     template <typename T>
     T read(uint32_t offset) const {
         throwOnInvalidAccess<T>(offset);
-        return *reinterpret_cast<const T*>(_data.data() + offset);
+        return *reinterpret_cast<const T *>(_data.data() + offset);
+    }
+
+    template <typename T>
+    void write(uint32_t offset, T value) {
+        throwOnInvalidAccess<T>(offset);
+        *reinterpret_cast<T *>(_data.data() + offset) = value;
     }
 
 public:
-    BIOS(const ByteBuffer &buffer);
+    Ram();
 
-    virtual uint32_t size() const override;
+    virtual uint32_t size() const;
 
     virtual uint8_t u8(uint32_t offset) const override;
     virtual uint16_t u16(uint32_t offset) const override;
