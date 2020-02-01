@@ -51,12 +51,16 @@ ValueType Memory::read(uint32_t address) {
 
     auto segmentAndOffset = getSegmentForAddress(address);
     if (!segmentAndOffset) {
-        throw std::runtime_error(fmt::format("Trying to read from address {:#010x}. No matching memory region found.", address));
+        spdlog::error("Trying to read from address {:#010x}. No matching memory region found.", address);
+        throw NotImplemented();
     }
 
     switch (segmentAndOffset->region) {
     case MemorySegment::RAM:
         return read<ValueType>(segmentAndOffset->offset, _ram.get());
+    case MemorySegment::EXPANSION_REGION_1:
+        spdlog::warn("Ignoring write to expansion region 1");
+        return 0;
     case MemorySegment::BIOS:
         return read<ValueType>(segmentAndOffset->offset, _bios.get());
     case MemorySegment::HW_REGISTERS:
@@ -81,12 +85,16 @@ void Memory::write(uint32_t address, ValueType value) {
 
     auto segmentAndOffset = getSegmentForAddress(address);
     if (!segmentAndOffset) {
-        throw std::runtime_error(fmt::format("Trying to read from address {:#x}. No matching memory region found."));
+        spdlog::error("Trying to read from address {:#x}. No matching memory region found.", address);
+        throw NotImplemented();
     }
 
     switch (segmentAndOffset->region) {
     case MemorySegment::RAM:
         write(segmentAndOffset->offset, value, _ram.get());
+        return;
+    case MemorySegment::EXPANSION_REGION_1:
+        spdlog::warn("Ignoring write to expansion region 1");
         return;
     case MemorySegment::BIOS:
         spdlog::warn("Writes to memory segment BIOS are not allowed.");
@@ -112,6 +120,9 @@ void Memory::setBios(std::unique_ptr<MemoryRegion> bios) {
     _bios = std::move(bios);
 }
 
+uint8_t Memory::u8(uint32_t address) {
+    return read<uint8_t>(address);
+}
 uint16_t Memory::u16(uint32_t address) {
     return read<uint16_t>(address);
 }
@@ -119,6 +130,9 @@ uint32_t Memory::u32(uint32_t address) {
     return read<uint32_t>(address);
 }
 
+void Memory::u8Write(uint32_t address, uint8_t value) {
+    write(address, value);
+}
 void Memory::u16Write(uint32_t address, uint16_t value) {
     write(address, value);
 }
@@ -131,6 +145,11 @@ constexpr uint32_t RAM_SIZE = 2048 * 1024;
 constexpr uint32_t RAM_KUSEG = 0x00000000;
 constexpr uint32_t RAM_KSEG0 = 0x80000000;
 constexpr uint32_t RAM_KSEG1 = 0xA0000000;
+
+constexpr uint32_t EXPANSION_1_SIZE = 8192 * 1024;
+constexpr uint32_t EXPANSION_1_KUSEG = 0x1F000000;
+constexpr uint32_t EXPANSION_1_KSEG0 = 0x9F000000;
+constexpr uint32_t EXPANSION_1_KSEG1 = 0xBF000000;
 
 constexpr uint32_t BIOS_SIZE = 512 * 1024;
 constexpr uint32_t BIOS_KUSEG = 0x1fc00000;
@@ -156,6 +175,16 @@ std::optional<SegmentAndOffset> Memory::getSegmentForAddress(uint32_t address) {
     }
     if (addressInRange(address, RAM_KSEG1, RAM_SIZE)) {
         return SegmentAndOffset{MemorySegment::RAM, address - RAM_KSEG1};
+    }
+
+    if (addressInRange(address, EXPANSION_1_KUSEG, EXPANSION_1_SIZE)) {
+        return SegmentAndOffset{MemorySegment::EXPANSION_REGION_1, address - EXPANSION_1_KUSEG};
+    }
+    if (addressInRange(address, EXPANSION_1_KSEG0, EXPANSION_1_SIZE)) {
+        return SegmentAndOffset{MemorySegment::EXPANSION_REGION_1, address - EXPANSION_1_KSEG0};
+    }
+    if (addressInRange(address, EXPANSION_1_KSEG1, EXPANSION_1_SIZE)) {
+        return SegmentAndOffset{MemorySegment::EXPANSION_REGION_1, address - EXPANSION_1_KSEG1};
     }
 
     if (addressInRange(address, BIOS_KUSEG, BIOS_SIZE)) {

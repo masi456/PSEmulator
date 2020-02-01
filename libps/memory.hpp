@@ -12,7 +12,7 @@
 
 enum class MemorySegment {
     RAM,
-    EXPANSION_REGION,
+    EXPANSION_REGION_1,
     SCRATCHPAD,
     HW_REGISTERS,
     BIOS,
@@ -46,9 +46,11 @@ public:
     void setRam(std::unique_ptr<MemoryRegion> ram);
 
     // Memory access
+    virtual uint8_t u8(uint32_t address);
     virtual uint16_t u16(uint32_t address);
     virtual uint32_t u32(uint32_t address);
 
+    virtual void u8Write(uint32_t address, uint8_t value);
     virtual void u16Write(uint32_t address, uint16_t value);
     virtual void u32Write(uint32_t address, uint32_t value);
 

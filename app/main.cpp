@@ -16,6 +16,7 @@ bool commandLineOptionPresent(int argc, char **argv, const std::string &option) 
 int main(int argc, char **argv) {
     auto logLevel = commandLineOptionPresent(argc, argv, "--trace") ? spdlog::level::trace : spdlog::level::debug;
     spdlog::set_level(logLevel);
+    spdlog::flush_on(spdlog::level::err);
 
     spdlog::debug("Hello, Playstation!");
 

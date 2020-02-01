@@ -33,7 +33,7 @@ uint32_t CpuState::getProgramCounter() const {
 
 void CpuState::setRegister(RegisterIndex index, uint32_t value) {
     if (index.index() == 0) {
-        spdlog::warn("[reg] ignore set $0");
+        spdlog::trace("[reg] ignore set $0");
         return;
     }
 

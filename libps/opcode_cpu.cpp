@@ -15,6 +15,18 @@ void OpcodeImplementationCpu::lui(Opcode opcode, CpuState *cpuState, IOpcodeCpuC
     cpuCallbacks->invalidateLoadDelaySlot(rt);
 }
 
+void OpcodeImplementationCpu::andi(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto rt = opcode.rt();
+    auto rs = opcode.rs();
+    auto imm = opcode.imm16();
+
+    spdlog::trace("[opcode] ori ${}, ${}, {:#06x}", rt, rs, imm);
+
+    uint32_t value = cpuState->getRegister(rs) & imm;
+    cpuState->setRegister(rt, value);
+    cpuCallbacks->invalidateLoadDelaySlot(rt);
+}
+
 void OpcodeImplementationCpu::ori(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
@@ -25,6 +37,18 @@ void OpcodeImplementationCpu::ori(Opcode opcode, CpuState *cpuState, IOpcodeCpuC
     uint32_t value = cpuState->getRegister(rs) | imm;
     cpuState->setRegister(rt, value);
     cpuCallbacks->invalidateLoadDelaySlot(rt);
+}
+
+void OpcodeImplementationCpu::lb(Opcode opcode, CpuState *cpuState, Memory *memory, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto rt = opcode.rt();
+    auto rs = opcode.rs();
+    auto imm = opcode.imm16();
+
+    spdlog::trace("[opcode] lb ${}, {:#06x}(${})", rt, imm, rs);
+
+    uint32_t address = cpuState->getRegister(rs) + imm;
+    auto value = static_cast<int8_t>(memory->u8(address));
+    cpuCallbacks->addLoadDelaySlot(LoadDelaySlot(rt, value));
 }
 
 void OpcodeImplementationCpu::lw(Opcode opcode, CpuState *cpuState, Memory *memory, IOpcodeCpuCallbacks *cpuCallbacks) {
@@ -61,6 +85,18 @@ void OpcodeImplementationCpu::sh(Opcode opcode, CpuState *cpuState, Memory *memo
     uint32_t address = cpuState->getRegister(rs) + imm;
     uint16_t value = cpuState->getRegister(rt) & 0xFFFF;
     memory->u16Write(address, value);
+}
+
+void OpcodeImplementationCpu::sb(Opcode opcode, CpuState *cpuState, Memory *memory) {
+    auto rt = opcode.rt();
+    auto rs = opcode.rs();
+    auto imm = opcode.imm16();
+
+    spdlog::trace("[opcode] sb ${}, {:#06x}(${})", rt, imm, rs);
+
+    uint32_t address = cpuState->getRegister(rs) + imm;
+    uint8_t value = cpuState->getRegister(rt) & 0xFF;
+    memory->u8Write(address, value);
 }
 
 void OpcodeImplementationCpu::sll(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
@@ -123,6 +159,26 @@ void OpcodeImplementationCpu::j(Opcode opcode, CpuState *cpuState) {
     cpuState->setProgramCounter(address);
 }
 
+void OpcodeImplementationCpu::jr(Opcode opcode, CpuState *cpuState) {
+    auto rs = opcode.rs();
+
+    uint32_t address = cpuState->getRegister(rs);
+    spdlog::trace("[opcode] jr ${}", rs);
+    cpuState->setProgramCounter(address);
+}
+
+void OpcodeImplementationCpu::jal(Opcode opcode, CpuState *cpuState) {
+    auto imm = opcode.imm26();
+
+    // Store return address in $31
+    auto returnAddress = cpuState->getProgramCounter();
+    cpuState->setRegister(RegisterIndex(31), returnAddress);
+
+    uint32_t address = (cpuState->getProgramCounter() & 0xF0000000) + (imm << 2);
+    spdlog::trace("[opcode] jal {:#010x}", address);
+    cpuState->setProgramCounter(address);
+}
+
 void OpcodeImplementationCpu::or_(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
@@ -157,6 +213,26 @@ void OpcodeImplementationCpu::bne(Opcode opcode, CpuState *cpuState) {
     spdlog::trace("[opcode] bne ${}, ${}, {:#06x}", rs, rt, imm);
 
     if (cpuState->getRegister(rs) != cpuState->getRegister(rt)) {
+        auto pc = cpuState->getProgramCounter();
+        pc += imm;
+
+        // Compensate the hardcoded add to pc in CPU::step()
+        pc -= 4;
+
+        cpuState->setProgramCounter(pc);
+    }
+}
+
+void OpcodeImplementationCpu::beq(Opcode opcode, CpuState *cpuState) {
+    auto rt = opcode.rt();
+    auto rs = opcode.rs();
+
+    auto imm = static_cast<int32_t>(opcode.imm16signed());
+    imm <<= 2;
+
+    spdlog::trace("[opcode] beq ${}, ${}, {:#06x}", rs, rt, imm);
+
+    if (cpuState->getRegister(rs) == cpuState->getRegister(rt)) {
         auto pc = cpuState->getProgramCounter();
         pc += imm;
 

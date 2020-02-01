@@ -63,6 +63,10 @@ void CPU::decodeAndExecute(Opcode opcode) {
             OpcodeImplementationCpu::sll(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
 
+        case 0x08:
+            OpcodeImplementationCpu::jr(opcode, &_cpuState);
+            return;
+
         case 0x21:
             OpcodeImplementationCpu::addu(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
@@ -86,6 +90,14 @@ void CPU::decodeAndExecute(Opcode opcode) {
         OpcodeImplementationCpu::j(opcode, &_cpuState);
         return;
 
+    case 0x03:
+        OpcodeImplementationCpu::jal(opcode, &_cpuState);
+        return;
+
+    case 0x04:
+        OpcodeImplementationCpu::beq(opcode, &_cpuState);
+        return;
+
     case 0x05:
         OpcodeImplementationCpu::bne(opcode, &_cpuState);
         return;
@@ -96,6 +108,10 @@ void CPU::decodeAndExecute(Opcode opcode) {
 
     case 0x09:
         OpcodeImplementationCpu::addiu(opcode, &_cpuState, opcodeCpuCallbacks);
+        return;
+
+    case 0x0C:
+        OpcodeImplementationCpu::andi(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0x0D:
@@ -110,9 +126,24 @@ void CPU::decodeAndExecute(Opcode opcode) {
         decodeAndExecuteCop0(opcode);
         return;
 
+    case 0x20:
+        OpcodeImplementationCpu::lb(opcode, &_cpuState, _memory, opcodeCpuCallbacks);
+        return;
+
     case 0x23:
         OpcodeImplementationCpu::lw(opcode, &_cpuState, _memory, opcodeCpuCallbacks);
         return;
+
+    case 0x28: {
+        auto cacheIsolation = (_cpuState.getRegisterCop0(Cop0Registers::SR) & Cop0Registers::IsolateCache) > 0;
+        if (cacheIsolation) {
+            spdlog::warn("Ignoring sw instruction because IsolateCache flag is set in Cop0 SR.");
+            return;
+        }
+
+        OpcodeImplementationCpu::sb(opcode, &_cpuState, _memory);
+        return;
+    }
 
     case 0x29: {
         auto cacheIsolation = (_cpuState.getRegisterCop0(Cop0Registers::SR) & Cop0Registers::IsolateCache) > 0;
@@ -137,8 +168,7 @@ void CPU::decodeAndExecute(Opcode opcode) {
     }
 
     default: {
-        auto rawOpcode = opcode.raw();
-        spdlog::error("Unhandled opcode {0:#010x} ({0:#034b}) at address {1:#010x}", rawOpcode, opcode.address());
+        spdlog::error("Unhandled opcode {0:#010x} ({0:#034b}), instruction {1:#04x} at address {2:#010x}", opcode.raw(), opcode.instruction(), opcode.address());
         throw OpcodeNotImplemented();
     }
 
