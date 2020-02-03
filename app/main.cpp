@@ -4,6 +4,7 @@
 #include <exception>
 #include <iostream>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 
 namespace {
 bool commandLineOptionPresent(int argc, char **argv, const std::string &option) {
@@ -14,9 +15,11 @@ bool commandLineOptionPresent(int argc, char **argv, const std::string &option) 
 }; // namespace
 
 int main(int argc, char **argv) {
+    // auto logger = spdlog::basic_logger_mt("logger", "logs/log.txt", true);
+    // spdlog::set_default_logger(logger);
+
     auto logLevel = commandLineOptionPresent(argc, argv, "--trace") ? spdlog::level::trace : spdlog::level::debug;
     spdlog::set_level(logLevel);
-    spdlog::flush_on(spdlog::level::err);
 
     spdlog::debug("Hello, Playstation!");
 

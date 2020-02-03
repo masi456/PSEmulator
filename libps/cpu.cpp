@@ -15,7 +15,6 @@ void CPU::setMemory(Memory *memory) {
 
 void CPU::initializeState() {
     _cpuState.initialize();
-    _nextOpcode = Opcode::NOP();
 }
 
 const CpuState *CPU::getCpuState() const {
@@ -64,11 +63,15 @@ void CPU::decodeAndExecute(Opcode opcode) {
             return;
 
         case 0x08:
-            OpcodeImplementationCpu::jr(opcode, &_cpuState);
+            OpcodeImplementationCpu::jr(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
 
         case 0x21:
             OpcodeImplementationCpu::addu(opcode, &_cpuState, opcodeCpuCallbacks);
+            return;
+
+        case 0x24:
+            OpcodeImplementationCpu::lbu(opcode, &_cpuState, _memory, opcodeCpuCallbacks);
             return;
 
         case 0x25:
@@ -87,19 +90,19 @@ void CPU::decodeAndExecute(Opcode opcode) {
     }
 
     case 0x02:
-        OpcodeImplementationCpu::j(opcode, &_cpuState);
+        OpcodeImplementationCpu::j(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0x03:
-        OpcodeImplementationCpu::jal(opcode, &_cpuState);
+        OpcodeImplementationCpu::jal(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0x04:
-        OpcodeImplementationCpu::beq(opcode, &_cpuState);
+        OpcodeImplementationCpu::beq(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0x05:
-        OpcodeImplementationCpu::bne(opcode, &_cpuState);
+        OpcodeImplementationCpu::bne(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
     case 0x08:
@@ -182,7 +185,11 @@ void CPU::decodeAndExecuteCop0(Opcode opcode) {
 
     switch (cop_opcode) {
 
-    case 0b00100:
+    case 0x00:
+        OpcodeImplementationCop0::mfc0(opcode, &_cpuState, opcodeCpuCallbacks);
+        return;
+
+    case 0x04:
         OpcodeImplementationCop0::mtc0(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
@@ -196,13 +203,9 @@ void CPU::decodeAndExecuteCop0(Opcode opcode) {
 std::vector<uint32_t> BREAKPOINTS = {};
 
 void CPU::step() {
-    // Always execute the last opcode we have seen to handle Branch Delay Slots
-    auto opcode = _nextOpcode;
-
     auto pc = _cpuState.getProgramCounter();
     auto rawOpcode = _memory->u32(pc);
-    _nextOpcode = Opcode(rawOpcode);
-    _nextOpcode.setAddress(pc);
+    auto opcode = Opcode(rawOpcode);
     _cpuState.incrementProgramCounter();
 
     auto breakpointHit = std::any_of(BREAKPOINTS.begin(), BREAKPOINTS.end(), [&](auto x) {
@@ -213,42 +216,60 @@ void CPU::step() {
         platform::debuggerBreak();
     }
 
-    spdlog::trace("[decode] raw {0:#010x} ({0:#034b})", opcode.raw());
+    spdlog::trace("[decode] raw {:#010x} at {:#010x}", opcode.raw(), pc);
     decodeAndExecute(opcode);
 
     moveAndApplyLoadDelaySlots();
+    moveAndApplyBranchDelaySlots();
 }
 
 void CPU::moveAndApplyLoadDelaySlots() {
-    auto first = _loadDelaySlot[0];
+    auto first = _loadDelaySlots[0];
     if (first) {
         spdlog::trace("Applying load delay slot value {:010x} for register {}", first->value, first->index);
         _cpuState.setRegister(first->index, first->value);
-        _loadDelaySlot[0] = {};
+        _loadDelaySlots[0] = {};
     }
 
-    auto second = _loadDelaySlot[1];
+    auto second = _loadDelaySlots[1];
     if (second) {
-        _loadDelaySlot[0] = second;
-        _loadDelaySlot[1] = {};
+        _loadDelaySlots[0] = second;
+        _loadDelaySlots[1] = {};
+    }
+}
+
+void CPU::moveAndApplyBranchDelaySlots() {
+    auto first = _branchDelaySlots[0];
+    if (first) {
+        spdlog::trace("Applying branch delay slot with address {:010x}", first->address);
+        _cpuState.setProgramCounter(first->address);
+        _branchDelaySlots[0] = {};
+    }
+
+    auto second = _branchDelaySlots[1];
+    if (second) {
+        _branchDelaySlots[0] = second;
+        _branchDelaySlots[1] = {};
     }
 }
 
 void CPU::invalidateLoadDelaySlot(RegisterIndex index) {
-    if (!_loadDelaySlot[0]) {
-        spdlog::trace("Wanted to invalidate load delay slot but no entry present");
+    if (!_loadDelaySlots[0]) {
         return;
     }
 
-    if (_loadDelaySlot[0]->index != index) {
-        spdlog::trace("Wanted to invalidate load delay for index {} but entry for {} is present", index, _loadDelaySlot[0]->index);
+    if (_loadDelaySlots[0]->index != index) {
         return;
     }
 
     spdlog::trace("Invalidated load delay slot for register {}", index);
-    _loadDelaySlot[0] = {};
+    _loadDelaySlots[0] = {};
 }
 
 void CPU::addLoadDelaySlot(LoadDelaySlot slot) {
-    _loadDelaySlot[1] = slot;
+    _loadDelaySlots[1] = slot;
+}
+
+void CPU::addBranchDelaySlot(BranchDelaySlot slot) {
+    _branchDelaySlots[1] = slot;
 }

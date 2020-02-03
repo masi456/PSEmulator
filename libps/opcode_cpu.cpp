@@ -1,4 +1,5 @@
 #include "opcode_cpu.hpp"
+#include "branchdelayslot.hpp"
 #include "libutils/math.hpp"
 #include "loaddelayslot.hpp"
 
@@ -39,6 +40,18 @@ void OpcodeImplementationCpu::ori(Opcode opcode, CpuState *cpuState, IOpcodeCpuC
     cpuCallbacks->invalidateLoadDelaySlot(rt);
 }
 
+void OpcodeImplementationCpu::lbu(Opcode opcode, CpuState *cpuState, Memory *memory, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto rt = opcode.rt();
+    auto rs = opcode.rs();
+    auto imm = opcode.imm16();
+
+    spdlog::trace("[opcode] lbu ${}, {:#06x}(${})", rt, imm, rs);
+
+    uint32_t address = cpuState->getRegister(rs) + imm;
+    auto value = static_cast<uint32_t>(memory->u8(address));
+    cpuCallbacks->addLoadDelaySlot(LoadDelaySlot(rt, value));
+}
+
 void OpcodeImplementationCpu::lb(Opcode opcode, CpuState *cpuState, Memory *memory, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
@@ -47,7 +60,9 @@ void OpcodeImplementationCpu::lb(Opcode opcode, CpuState *cpuState, Memory *memo
     spdlog::trace("[opcode] lb ${}, {:#06x}(${})", rt, imm, rs);
 
     uint32_t address = cpuState->getRegister(rs) + imm;
-    auto value = static_cast<int8_t>(memory->u8(address));
+    // Sign extend
+    auto value = static_cast<uint32_t>(
+        static_cast<int8_t>(memory->u8(address)));
     cpuCallbacks->addLoadDelaySlot(LoadDelaySlot(rt, value));
 }
 
@@ -66,7 +81,7 @@ void OpcodeImplementationCpu::lw(Opcode opcode, CpuState *cpuState, Memory *memo
 void OpcodeImplementationCpu::sw(Opcode opcode, CpuState *cpuState, Memory *memory) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
-    auto imm = opcode.imm16();
+    auto imm = static_cast<int16_t>(opcode.imm16());
 
     spdlog::trace("[opcode] sw ${}, {:#06x}(${})", rt, imm, rs);
 
@@ -78,7 +93,7 @@ void OpcodeImplementationCpu::sw(Opcode opcode, CpuState *cpuState, Memory *memo
 void OpcodeImplementationCpu::sh(Opcode opcode, CpuState *cpuState, Memory *memory) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
-    auto imm = opcode.imm16();
+    auto imm = static_cast<int16_t>(opcode.imm16());
 
     spdlog::trace("[opcode] sh ${}, {:#06x}(${})", rt, imm, rs);
 
@@ -90,7 +105,7 @@ void OpcodeImplementationCpu::sh(Opcode opcode, CpuState *cpuState, Memory *memo
 void OpcodeImplementationCpu::sb(Opcode opcode, CpuState *cpuState, Memory *memory) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
-    auto imm = opcode.imm16();
+    auto imm = static_cast<int16_t>(opcode.imm16());
 
     spdlog::trace("[opcode] sb ${}, {:#06x}(${})", rt, imm, rs);
 
@@ -135,7 +150,8 @@ void OpcodeImplementationCpu::addi(Opcode opcode, CpuState *cpuState, IOpcodeCpu
         cpuState->setRegister(rt, *checkedAdd);
         cpuCallbacks->invalidateLoadDelaySlot(rt);
     } else {
-        throw std::runtime_error("addi overflow");
+        spdlog::error("addi overflow at {:#010x}", cpuState->getProgramCounter());
+        throw OpcodeError();
     }
 }
 
@@ -151,23 +167,23 @@ void OpcodeImplementationCpu::addiu(Opcode opcode, CpuState *cpuState, IOpcodeCp
     cpuCallbacks->invalidateLoadDelaySlot(rt);
 }
 
-void OpcodeImplementationCpu::j(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::j(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto imm = opcode.imm26();
 
     uint32_t address = (cpuState->getProgramCounter() & 0xF0000000) + (imm << 2);
     spdlog::trace("[opcode] j {:#010x}", address);
-    cpuState->setProgramCounter(address);
+    cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
 }
 
-void OpcodeImplementationCpu::jr(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::jr(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rs = opcode.rs();
 
     uint32_t address = cpuState->getRegister(rs);
     spdlog::trace("[opcode] jr ${}", rs);
-    cpuState->setProgramCounter(address);
+    cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
 }
 
-void OpcodeImplementationCpu::jal(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::jal(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto imm = opcode.imm26();
 
     // Store return address in $31
@@ -176,7 +192,7 @@ void OpcodeImplementationCpu::jal(Opcode opcode, CpuState *cpuState) {
 
     uint32_t address = (cpuState->getProgramCounter() & 0xF0000000) + (imm << 2);
     spdlog::trace("[opcode] jal {:#010x}", address);
-    cpuState->setProgramCounter(address);
+    cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
 }
 
 void OpcodeImplementationCpu::or_(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
@@ -203,27 +219,22 @@ void OpcodeImplementationCpu::sltu(Opcode opcode, CpuState *cpuState, IOpcodeCpu
     cpuCallbacks->invalidateLoadDelaySlot(rd);
 }
 
-void OpcodeImplementationCpu::bne(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::bne(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
 
-    auto imm = static_cast<int32_t>(opcode.imm16signed());
-    imm <<= 2;
+    auto imm = static_cast<int32_t>(opcode.imm16signed()) << 2;
 
     spdlog::trace("[opcode] bne ${}, ${}, {:#06x}", rs, rt, imm);
 
     if (cpuState->getRegister(rs) != cpuState->getRegister(rt)) {
-        auto pc = cpuState->getProgramCounter();
-        pc += imm;
-
-        // Compensate the hardcoded add to pc in CPU::step()
-        pc -= 4;
-
-        cpuState->setProgramCounter(pc);
+        auto address = cpuState->getProgramCounter();
+        address += imm;
+        cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
     }
 }
 
-void OpcodeImplementationCpu::beq(Opcode opcode, CpuState *cpuState) {
+void OpcodeImplementationCpu::beq(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
 
@@ -233,12 +244,8 @@ void OpcodeImplementationCpu::beq(Opcode opcode, CpuState *cpuState) {
     spdlog::trace("[opcode] beq ${}, ${}, {:#06x}", rs, rt, imm);
 
     if (cpuState->getRegister(rs) == cpuState->getRegister(rt)) {
-        auto pc = cpuState->getProgramCounter();
-        pc += imm;
-
-        // Compensate the hardcoded add to pc in CPU::step()
-        pc -= 4;
-
-        cpuState->setProgramCounter(pc);
+        auto address = cpuState->getProgramCounter();
+        address += imm;
+        cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
     }
 }

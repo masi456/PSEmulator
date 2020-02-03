@@ -57,7 +57,7 @@ TEST(LoadDelaySlot, testLoadDelaySlotNextRead) {
     cpu.initializeState();
 
     cpu.setMemory(&memory);
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         cpu.step();
     }
 
@@ -100,9 +100,9 @@ TEST(LoadDelaySlot, testLoadDelaySlotNextWrite) {
 
     auto cpu = CPU();
     cpu.initializeState();
-
     cpu.setMemory(&memory);
-    for (int i = 0; i < 3; i++) {
+
+    for (int i = 0; i < 2; i++) {
         cpu.step();
     }
 

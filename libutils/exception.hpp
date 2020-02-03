@@ -21,3 +21,8 @@ class IllegalWrite : public std::runtime_error {
 public:
     IllegalWrite() : std::runtime_error("Illegal write.") {}
 };
+
+class OpcodeError : public std::runtime_error {
+public:
+    OpcodeError() : std::runtime_error("Opcode error.") {}
+};

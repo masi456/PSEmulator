@@ -5,6 +5,7 @@ include (GoogleTest)
 add_executable (test 
     main.cpp
     test_load_delay_slot.cpp
+    test_branch_delay_slot.cpp
 )
 target_link_libraries (test PRIVATE GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main)
 

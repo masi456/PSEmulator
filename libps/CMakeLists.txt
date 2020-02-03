@@ -16,7 +16,7 @@ add_library (libps
     bios.cpp
     bios.hpp
     memory_region.hpp
-    loaddelayslot.cpp
+    branchdelayslot.hpp
     loaddelayslot.hpp
     ram.hpp
     ram.cpp

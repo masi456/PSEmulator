@@ -6,6 +6,7 @@
 
 #include "cpustate.hpp"
 #include "loaddelayslot.hpp"
+#include "branchdelayslot.hpp"
 #include "memory.hpp"
 #include "opcode.hpp"
 
@@ -14,10 +15,12 @@ class CPU
 private:
     CpuState _cpuState = {};
     Memory *_memory = nullptr;
-    Opcode _nextOpcode = Opcode::NOP();
-    std::optional<LoadDelaySlot> _loadDelaySlot[2];
+
+    std::optional<LoadDelaySlot> _loadDelaySlots[2];
+    std::optional<BranchDelaySlot> _branchDelaySlots[2];
 
     void moveAndApplyLoadDelaySlots();
+    void moveAndApplyBranchDelaySlots();
 
 public:
     CPU() = default;
@@ -33,4 +36,5 @@ public:
 
     virtual void invalidateLoadDelaySlot(RegisterIndex index) override;
     virtual void addLoadDelaySlot(LoadDelaySlot slot) override;
+    virtual void addBranchDelaySlot(BranchDelaySlot slot) override;
 };

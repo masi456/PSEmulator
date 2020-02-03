@@ -1,5 +1,6 @@
 #pragma once
 
+#include "branchdelayslot.hpp"
 #include "cpustate.hpp"
 #include "loaddelayslot.hpp"
 #include "memory.hpp"
@@ -56,4 +57,5 @@ class IOpcodeCpuCallbacks {
 public:
     virtual void invalidateLoadDelaySlot(RegisterIndex index) = 0;
     virtual void addLoadDelaySlot(LoadDelaySlot slot) = 0;
+    virtual void addBranchDelaySlot(BranchDelaySlot slot) = 0;
 };
