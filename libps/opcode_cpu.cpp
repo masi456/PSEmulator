@@ -126,6 +126,23 @@ void OpcodeImplementationCpu::sll(Opcode opcode, CpuState *cpuState, IOpcodeCpuC
     cpuCallbacks->invalidateLoadDelaySlot(rd);
 }
 
+void OpcodeImplementationCpu::add(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto rt = opcode.rt();
+    auto rs = opcode.rs();
+    auto rd = opcode.rd();
+
+    spdlog::trace("[opcode] addu ${}, ${}, ${}", rd, rs, rt);
+
+    auto value = checked_add_unsigned(cpuState->getRegister(rs), cpuState->getRegister(rt));
+    if (value) {
+        cpuState->setRegister(rd, *value);
+        cpuCallbacks->invalidateLoadDelaySlot(rd);
+    } else {
+        spdlog::error("add overflow at {:#010x}", opcode.address());
+        throw OpcodeError();
+    }
+}
+
 void OpcodeImplementationCpu::addu(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
@@ -141,16 +158,17 @@ void OpcodeImplementationCpu::addu(Opcode opcode, CpuState *cpuState, IOpcodeCpu
 void OpcodeImplementationCpu::addi(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
-    auto imm = opcode.imm16();
+    auto imm = static_cast<int16_t>(opcode.imm16());
 
     spdlog::trace("[opcode] addi ${}, ${}, {:#07x}", rt, rs, imm);
 
-    auto checkedAdd = checked_add(cpuState->getRegister(rs), imm);
-    if (checkedAdd) {
-        cpuState->setRegister(rt, *checkedAdd);
+    auto registerValue = static_cast<int32_t>(cpuState->getRegister(rs));
+    auto value = checked_add_signed(registerValue, imm);
+    if (value) {
+        cpuState->setRegister(rt, static_cast<uint32_t>(*value));
         cpuCallbacks->invalidateLoadDelaySlot(rt);
     } else {
-        spdlog::error("addi overflow at {:#010x}", cpuState->getProgramCounter());
+        spdlog::error("addi overflow at {:#010x}", opcode.address());
         throw OpcodeError();
     }
 }
@@ -219,33 +237,56 @@ void OpcodeImplementationCpu::sltu(Opcode opcode, CpuState *cpuState, IOpcodeCpu
     cpuCallbacks->invalidateLoadDelaySlot(rd);
 }
 
+namespace {
+void branch(int16_t imm, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto imm32 = static_cast<uint32_t>(imm) << 2;
+    auto address = cpuState->getProgramCounter() + imm32;
+    cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
+}
+}; // namespace
+
 void OpcodeImplementationCpu::bne(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
-
-    auto imm = static_cast<int32_t>(opcode.imm16signed()) << 2;
+    auto imm = opcode.imm16signed();
 
     spdlog::trace("[opcode] bne ${}, ${}, {:#06x}", rs, rt, imm);
 
     if (cpuState->getRegister(rs) != cpuState->getRegister(rt)) {
-        auto address = cpuState->getProgramCounter();
-        address += imm;
-        cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
+        branch(imm, cpuState, cpuCallbacks);
     }
 }
 
 void OpcodeImplementationCpu::beq(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
-
-    auto imm = static_cast<int32_t>(opcode.imm16signed());
-    imm <<= 2;
+    auto imm = opcode.imm16signed();
 
     spdlog::trace("[opcode] beq ${}, ${}, {:#06x}", rs, rt, imm);
 
     if (cpuState->getRegister(rs) == cpuState->getRegister(rt)) {
-        auto address = cpuState->getProgramCounter();
-        address += imm;
-        cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
+        branch(imm, cpuState, cpuCallbacks);
+    }
+}
+
+void OpcodeImplementationCpu::bgtz(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto rs = opcode.rs();
+    auto imm = opcode.imm16signed();
+
+    spdlog::trace("[opcode] bgtz ${}, {:#06x}", rs, imm);
+
+    if (cpuState->getRegister(rs) > 0) {
+        branch(imm, cpuState, cpuCallbacks);
+    }
+}
+
+void OpcodeImplementationCpu::blez(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto rs = opcode.rs();
+    auto imm = opcode.imm16signed();
+
+    spdlog::trace("[opcode] blez ${}, {:#06x}", rs, imm);
+
+    if (cpuState->getRegister(rs) <= 0) {
+        branch(imm, cpuState, cpuCallbacks);
     }
 }

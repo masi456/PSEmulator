@@ -66,6 +66,10 @@ void CPU::decodeAndExecute(Opcode opcode) {
             OpcodeImplementationCpu::jr(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
 
+        case 0x20:
+            OpcodeImplementationCpu::add(opcode, &_cpuState, opcodeCpuCallbacks);
+            return;
+
         case 0x21:
             OpcodeImplementationCpu::addu(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
@@ -105,6 +109,14 @@ void CPU::decodeAndExecute(Opcode opcode) {
         OpcodeImplementationCpu::bne(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
 
+    case 0x06:
+        OpcodeImplementationCpu::blez(opcode, &_cpuState, opcodeCpuCallbacks);
+        return;
+
+    case 0x07:
+        OpcodeImplementationCpu::bgtz(opcode, &_cpuState, opcodeCpuCallbacks);
+        return;
+
     case 0x08:
         OpcodeImplementationCpu::addi(opcode, &_cpuState, opcodeCpuCallbacks);
         return;
@@ -140,7 +152,7 @@ void CPU::decodeAndExecute(Opcode opcode) {
     case 0x28: {
         auto cacheIsolation = (_cpuState.getRegisterCop0(Cop0Registers::SR) & Cop0Registers::IsolateCache) > 0;
         if (cacheIsolation) {
-            spdlog::warn("Ignoring sw instruction because IsolateCache flag is set in Cop0 SR.");
+            spdlog::warn("Ignoring sb instruction because IsolateCache flag is set in Cop0 SR.");
             return;
         }
 
@@ -151,7 +163,7 @@ void CPU::decodeAndExecute(Opcode opcode) {
     case 0x29: {
         auto cacheIsolation = (_cpuState.getRegisterCop0(Cop0Registers::SR) & Cop0Registers::IsolateCache) > 0;
         if (cacheIsolation) {
-            spdlog::warn("Ignoring sw instruction because IsolateCache flag is set in Cop0 SR.");
+            spdlog::warn("Ignoring sh instruction because IsolateCache flag is set in Cop0 SR.");
             return;
         }
 
@@ -200,12 +212,15 @@ void CPU::decodeAndExecuteCop0(Opcode opcode) {
     } // switch (cop_opcode)
 }
 
-std::vector<uint32_t> BREAKPOINTS = {};
+std::vector<uint32_t> BREAKPOINTS = {
+    
+};
 
 void CPU::step() {
     auto pc = _cpuState.getProgramCounter();
     auto rawOpcode = _memory->u32(pc);
     auto opcode = Opcode(rawOpcode);
+    opcode.setAddress(pc);
     _cpuState.incrementProgramCounter();
 
     auto breakpointHit = std::any_of(BREAKPOINTS.begin(), BREAKPOINTS.end(), [&](auto x) {
