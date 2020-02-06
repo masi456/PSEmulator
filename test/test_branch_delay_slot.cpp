@@ -49,10 +49,14 @@ TEST(BranchDelaySlot, testBranchDelaySlot) {
 
     ON_CALL(memory, u32(0xBFC00000))
         .WillByDefault(Return(jumpInstruction));
+    
+    // Will be jumped over, but executed
     ON_CALL(memory, u32(0xBFC00004))
         .WillByDefault(Return(addInstruction1));
+    // Will be jumped over and not executed
     ON_CALL(memory, u32(0xBFC00008))
         .WillByDefault(Return(addInstruction2));
+    // Will be executed again
     ON_CALL(memory, u32(0xBFC0000C))
         .WillByDefault(Return(addInstruction3));
 

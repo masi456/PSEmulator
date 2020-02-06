@@ -1,4 +1,5 @@
 #include "memory.hpp"
+#include "libutils/platform.hpp"
 
 #include <cstring>
 #include <spdlog/spdlog.h>
@@ -9,7 +10,7 @@ bool addressInRange(uint32_t address, uint32_t base, uint32_t size) {
     return address >= base &&
            address <= (base + size);
 }
-template<typename A, typename B>
+template <typename A, typename B>
 constexpr bool sameTypeRemoveQualifier() {
     return std::is_same<std::remove_cv<A>::type, B>::value;
 }

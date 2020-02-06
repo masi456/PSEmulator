@@ -201,11 +201,24 @@ void OpcodeImplementationCpu::jr(Opcode opcode, CpuState *cpuState, IOpcodeCpuCa
     cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
 }
 
+void OpcodeImplementationCpu::jalr(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto rs = opcode.rs();
+    auto rd = opcode.rd();
+
+    // Store return address in $31
+    auto returnAddress = opcode.address() + 8;
+    cpuState->setRegister(rd, returnAddress);
+
+    uint32_t address = cpuState->getRegister(rs);
+    spdlog::trace("[opcode] jr ${}", rs);
+    cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
+}
+
 void OpcodeImplementationCpu::jal(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto imm = opcode.imm26();
 
     // Store return address in $31
-    auto returnAddress = cpuState->getProgramCounter();
+    auto returnAddress = opcode.address() + 8;
     cpuState->setRegister(RegisterIndex(31), returnAddress);
 
     uint32_t address = (cpuState->getProgramCounter() & 0xF0000000) + (imm << 2);
@@ -225,6 +238,18 @@ void OpcodeImplementationCpu::or_(Opcode opcode, CpuState *cpuState, IOpcodeCpuC
     cpuCallbacks->invalidateLoadDelaySlot(rd);
 }
 
+void OpcodeImplementationCpu::and(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto rt = opcode.rt();
+    auto rs = opcode.rs();
+    auto rd = opcode.rd();
+
+    spdlog::trace("[opcode] and ${}, ${}, ${}", rd, rs, rt);
+
+    auto value = cpuState->getRegister(rs) & cpuState->getRegister(rt);
+    cpuState->setRegister(rd, value);
+    cpuCallbacks->invalidateLoadDelaySlot(rd);
+}
+
 void OpcodeImplementationCpu::sltu(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto rt = opcode.rt();
     auto rs = opcode.rs();
@@ -238,9 +263,9 @@ void OpcodeImplementationCpu::sltu(Opcode opcode, CpuState *cpuState, IOpcodeCpu
 }
 
 namespace {
-void branch(int16_t imm, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+void branch(int16_t imm, const Opcode &opcode, IOpcodeCpuCallbacks *cpuCallbacks) {
     auto imm32 = static_cast<uint32_t>(imm) << 2;
-    auto address = cpuState->getProgramCounter() + imm32;
+    auto address = opcode.address() + 4 + imm32;
     cpuCallbacks->addBranchDelaySlot(BranchDelaySlot(address));
 }
 }; // namespace
@@ -253,7 +278,7 @@ void OpcodeImplementationCpu::bne(Opcode opcode, CpuState *cpuState, IOpcodeCpuC
     spdlog::trace("[opcode] bne ${}, ${}, {:#06x}", rs, rt, imm);
 
     if (cpuState->getRegister(rs) != cpuState->getRegister(rt)) {
-        branch(imm, cpuState, cpuCallbacks);
+        branch(imm, opcode, cpuCallbacks);
     }
 }
 
@@ -265,7 +290,7 @@ void OpcodeImplementationCpu::beq(Opcode opcode, CpuState *cpuState, IOpcodeCpuC
     spdlog::trace("[opcode] beq ${}, ${}, {:#06x}", rs, rt, imm);
 
     if (cpuState->getRegister(rs) == cpuState->getRegister(rt)) {
-        branch(imm, cpuState, cpuCallbacks);
+        branch(imm, opcode, cpuCallbacks);
     }
 }
 
@@ -276,7 +301,7 @@ void OpcodeImplementationCpu::bgtz(Opcode opcode, CpuState *cpuState, IOpcodeCpu
     spdlog::trace("[opcode] bgtz ${}, {:#06x}", rs, imm);
 
     if (cpuState->getRegister(rs) > 0) {
-        branch(imm, cpuState, cpuCallbacks);
+        branch(imm, opcode, cpuCallbacks);
     }
 }
 
@@ -287,6 +312,26 @@ void OpcodeImplementationCpu::blez(Opcode opcode, CpuState *cpuState, IOpcodeCpu
     spdlog::trace("[opcode] blez ${}, {:#06x}", rs, imm);
 
     if (cpuState->getRegister(rs) <= 0) {
-        branch(imm, cpuState, cpuCallbacks);
+        branch(imm, opcode, cpuCallbacks);
+    }
+}
+
+void OpcodeImplementationCpu::bcond(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks) {
+    auto subfunction = opcode.bcond_subfunction();
+    auto rs = opcode.rs();
+    auto imm = opcode.imm16();
+
+    switch (subfunction) {
+    case 0x00: // bltz
+        return;
+    case 0x01: // bgez
+        return;
+    case 0x10: // bltzal
+        return;
+    case 0x11: // bgezal
+        return;
+    default:
+        spdlog::error("Unimplemented bcond subfunction");
+        throw OpcodeError();
     }
 }

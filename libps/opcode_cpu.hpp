@@ -13,6 +13,7 @@ void addu(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void addi(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void addiu(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void or_(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
+void and(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void sltu(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 
 void lbu(Opcode opcode, CpuState *cpuState, Memory *memory, IOpcodeCpuCallbacks *cpuCallbacks);
@@ -24,9 +25,11 @@ void sb(Opcode opcode, CpuState *cpuState, Memory *memory);
 
 void j(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void jr(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
+void jalr(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void jal(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void bne(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void beq(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void bgtz(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
+void bcond(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 void blez(Opcode opcode, CpuState *cpuState, IOpcodeCpuCallbacks *cpuCallbacks);
 }; // namespace OpcodeImplementationCpu

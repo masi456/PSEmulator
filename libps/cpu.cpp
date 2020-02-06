@@ -52,6 +52,8 @@ void CPU::decodeAndExecute(Opcode opcode) {
 
     IOpcodeCpuCallbacks *opcodeCpuCallbacks = this;
 
+    auto cacheIsolation = (_cpuState.getRegisterCop0(Cop0Registers::SR) & Cop0Registers::IsolateCache) > 0;
+
     switch (instruction) {
 
     case 0x00: {
@@ -66,6 +68,10 @@ void CPU::decodeAndExecute(Opcode opcode) {
             OpcodeImplementationCpu::jr(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
 
+        case 0x09:
+            OpcodeImplementationCpu::jalr(opcode, &_cpuState, opcodeCpuCallbacks);
+            return;
+
         case 0x20:
             OpcodeImplementationCpu::add(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
@@ -75,7 +81,7 @@ void CPU::decodeAndExecute(Opcode opcode) {
             return;
 
         case 0x24:
-            OpcodeImplementationCpu::lbu(opcode, &_cpuState, _memory, opcodeCpuCallbacks);
+            OpcodeImplementationCpu::and(opcode, &_cpuState, opcodeCpuCallbacks);
             return;
 
         case 0x25:
@@ -92,6 +98,10 @@ void CPU::decodeAndExecute(Opcode opcode) {
             return;
         }
     }
+
+    case 0x01:
+        OpcodeImplementationCpu::bcond(opcode, &_cpuState, opcodeCpuCallbacks);
+        return;
 
     case 0x02:
         OpcodeImplementationCpu::j(opcode, &_cpuState, opcodeCpuCallbacks);
@@ -149,8 +159,11 @@ void CPU::decodeAndExecute(Opcode opcode) {
         OpcodeImplementationCpu::lw(opcode, &_cpuState, _memory, opcodeCpuCallbacks);
         return;
 
+    case 0x24:
+        OpcodeImplementationCpu::lbu(opcode, &_cpuState, _memory, opcodeCpuCallbacks);
+        return;
+
     case 0x28: {
-        auto cacheIsolation = (_cpuState.getRegisterCop0(Cop0Registers::SR) & Cop0Registers::IsolateCache) > 0;
         if (cacheIsolation) {
             spdlog::warn("Ignoring sb instruction because IsolateCache flag is set in Cop0 SR.");
             return;
@@ -161,7 +174,6 @@ void CPU::decodeAndExecute(Opcode opcode) {
     }
 
     case 0x29: {
-        auto cacheIsolation = (_cpuState.getRegisterCop0(Cop0Registers::SR) & Cop0Registers::IsolateCache) > 0;
         if (cacheIsolation) {
             spdlog::warn("Ignoring sh instruction because IsolateCache flag is set in Cop0 SR.");
             return;
@@ -172,7 +184,6 @@ void CPU::decodeAndExecute(Opcode opcode) {
     }
 
     case 0x2B: {
-        auto cacheIsolation = (_cpuState.getRegisterCop0(Cop0Registers::SR) & Cop0Registers::IsolateCache) > 0;
         if (cacheIsolation) {
             spdlog::warn("Ignoring sw instruction because IsolateCache flag is set in Cop0 SR.");
             return;
@@ -183,7 +194,7 @@ void CPU::decodeAndExecute(Opcode opcode) {
     }
 
     default: {
-        spdlog::error("Unhandled opcode {0:#010x} ({0:#034b}), instruction {1:#04x} at address {2:#010x}", opcode.raw(), opcode.instruction(), opcode.address());
+        spdlog::error("Unhandled opcode {0:#010x}, instruction {1:#04x} at address {2:#010x}", opcode.raw(), opcode.instruction(), opcode.address());
         throw OpcodeNotImplemented();
     }
 
@@ -206,14 +217,13 @@ void CPU::decodeAndExecuteCop0(Opcode opcode) {
         return;
 
     default:
-        spdlog::error("Unhandled cop0 opcode {0:#04x} ({0:#07b}) at address {1:#010x}", cop_opcode, opcode.address());
+        spdlog::error("Unhandled cop0 opcode {0:#04x} at address {1:#010x}", cop_opcode, opcode.address());
         throw OpcodeNotImplemented();
 
     } // switch (cop_opcode)
 }
 
 std::vector<uint32_t> BREAKPOINTS = {
-    
 };
 
 void CPU::step() {

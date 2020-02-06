@@ -17,7 +17,7 @@ bool File::exists()
 
 std::vector<uint8_t> File::readAll()
 {
-    spdlog::debug("Reading file {}", _path);
+    spdlog::trace("Reading file {}", _path);
 
     auto istream = std::ifstream(_path.c_str(), std::ios::binary | std::ios::ate);
     auto size = istream.tellg();

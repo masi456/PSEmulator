@@ -18,7 +18,7 @@ public:
     Opcode(uint32_t opcode);
 
     void setAddress(uint32_t address) { _address = address; }
-    uint32_t address() { return _address; }
+    uint32_t address() const { return _address; }
 
     uint32_t raw();
 
@@ -49,6 +49,8 @@ public:
 
     // Get bits 25..21
     uint8_t cop_opcode();
+
+    uint8_t bcond_subfunction();
 
     static Opcode NOP() { return Opcode(0); }
 };

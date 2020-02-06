@@ -51,3 +51,6 @@ uint8_t Opcode::cop_opcode() {
     return (_opcode >> 21) & 0x1F;
 }
 
+uint8_t Opcode::bcond_subfunction() {
+    return (_opcode >> 16) & 0x1F;
+}
